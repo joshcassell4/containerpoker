@@ -17,7 +17,12 @@ make setup
 
 That's it! You're ready to learn container orchestration! 🎉
 
-**Windows Users**: Use Git Bash or WSL to run `make` commands. Everything runs inside Docker containers - no local Python setup required!
+**Windows Users**: 
+- Option 1: Use the provided batch file: `setup.bat`
+- Option 2: Use PowerShell: `.\setup.ps1`
+- Option 3: Use Git Bash or WSL to run `make` commands
+
+Everything runs inside Docker containers - no local Python setup required!
 
 ## 📚 What You'll Learn
 
@@ -62,7 +67,12 @@ sudo usermod -aG docker $USER
 git clone https://github.com/joshcassell4/containerpoker.git
 cd containerpoker
 
-# Quick container setup (recommended for Windows)
+# For Windows users (if make doesn't work):
+setup.bat         # Windows batch file
+# OR
+.\setup.ps1      # PowerShell script
+
+# For Mac/Linux or Windows with Git Bash:
 make setup
 
 # Or if you prefer step by step:
