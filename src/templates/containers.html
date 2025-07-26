@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Container Management - Container Poker{% endblock %}
+
+{% block content %}
+<div class="containers-page">
+    <h1>🐳 Container Management</h1>
+    <p class="lead">View and manage all containers. Learn by doing!</p>
+
+    <!-- Container Controls -->
+    <div class="card">
+        <h2>🎮 Container Controls</h2>
+        <div class="controls-grid">
+            <button class="btn btn-primary" onclick="showSpawnForm()">
+                ➕ Spawn New Container
+            </button>
+            <button class="btn btn-info" onclick="refreshContainers()">
+                🔄 Refresh List
+            </button>
+            <button class="btn btn-warning" onclick="stopAllContainers()">
+                ⏹️ Stop All
+            </button>
+            <button class="btn btn-danger" onclick="cleanupContainers()">
+                🧹 Cleanup
+            </button>
+        </div>
+    </div>
+
+    <!-- Container List -->
+    <div class="card">
+        <h2>📋 Active Containers</h2>
+        <div id="container-list" class="container-list">
+            <p class="loading">Loading containers...</p>
+        </div>
+    </div>
+
+    <!-- Educational Tips -->
+    <div class="card tips-card">
+        <h2>💡 Container Management Tips</h2>
+        <ul class="tips-list">
+            <li><strong>States:</strong> Containers can be running, stopped, paused, or dead</li>
+            <li><strong>Logs:</strong> Always check logs when debugging container issues</li>
+            <li><strong>Cleanup:</strong> Remove stopped containers to free resources</li>
+            <li><strong>Names:</strong> Use meaningful names for easy identification</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Spawn Container Modal -->
+<div id="spawn-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeSpawnModal()">&times;</span>
+        <h2>🚀 Spawn New Container</h2>
+        <form id="spawn-form" onsubmit="spawnContainer(event)">
+            <div class="form-group">
+                <label for="image">Docker Image:</label>
+                <select id="image" name="image" required>
+                    <option value="ubuntu:latest">ubuntu:latest</option>
+                    <option value="alpine:latest">alpine:latest</option>
+                    <option value="nginx:alpine">nginx:alpine</option>
+                    <option value="python:slim">python:slim</option>
+                    <option value="node:alpine">node:alpine</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="name">Container Name (optional):</label>
+                <input type="text" id="name" name="name" placeholder="my-container">
+            </div>
+            <div class="form-group">
+                <label for="command">Command (optional):</label>
+                <input type="text" id="command" name="command" placeholder="/bin/bash">
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Create Container</button>
+                <button type="button" class="btn btn-secondary" onclick="closeSpawnModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Container Logs Modal -->
+<div id="logs-modal" class="modal" style="display: none;">
+    <div class="modal-content modal-wide">
+        <span class="close" onclick="closeLogsModal()">&times;</span>
+        <h2 id="logs-title">Container Logs</h2>
+        <div id="logs-output" class="logs-output">
+            <pre></pre>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeLogsModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load containers on page load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshContainers();
+    setInterval(refreshContainers, 5000); // Auto-refresh every 5 seconds
+});
+
+// Refresh container list
+async function refreshContainers() {
+    try {
+        const response = await fetch('/api/containers');
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('container-list');
+        
+        if (data.containers.length === 0) {
+            listDiv.innerHTML = '<p class="muted">No containers found. Create one to get started!</p>';
+            return;
+        }
+        
+        listDiv.innerHTML = '';
+        const table = createContainerTable(data.containers);
+        listDiv.appendChild(table);
+        
+    } catch (error) {
+        console.error('Error loading containers:', error);
+        document.getElementById('container-list').innerHTML = 
+            '<p class="error">Failed to load containers</p>';
+    }
+}
+
+// Create container table
+function createContainerTable(containers) {
+    const table = document.createElement('table');
+    table.className = 'container-table';
+    
+    // Header
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Image</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${containers.map(container => createContainerRow(container)).join('')}
+        </tbody>
+    `;
+    
+    return table;
+}
+
+// Create container row
+function createContainerRow(container) {
+    const created = new Date(container.created).toLocaleString();
+    const statusClass = container.status === 'running' ? 'status-running' : 'status-stopped';
+    
+    return `
+        <tr>
+            <td>${container.name}</td>
+            <td>${container.image}</td>
+            <td><span class="status ${statusClass}">${container.status}</span></td>
+            <td>${created}</td>
+            <td class="actions">
+                ${getContainerActions(container)}
+            </td>
+        </tr>
+    `;
+}
+
+// Get appropriate actions for container state
+function getContainerActions(container) {
+    const actions = [];
+    
+    actions.push(`<button class="btn btn-sm" onclick="viewLogs('${container.id}', '${container.name}')">📋 Logs</button>`);
+    
+    if (container.status === 'running') {
+        actions.push(`<button class="btn btn-sm btn-warning" onclick="containerAction('${container.id}', 'stop')">⏹️ Stop</button>`);
+        actions.push(`<button class="btn btn-sm btn-info" onclick="containerAction('${container.id}', 'restart')">🔄 Restart</button>`);
+    } else {
+        actions.push(`<button class="btn btn-sm btn-success" onclick="containerAction('${container.id}', 'start')">▶️ Start</button>`);
+    }
+    
+    actions.push(`<button class="btn btn-sm btn-danger" onclick="containerAction('${container.id}', 'remove')">🗑️ Remove</button>`);
+    
+    return actions.join(' ');
+}
+
+// Perform container action
+async function containerAction(containerId, action) {
+    if (action === 'remove' && !confirm('Are you sure you want to remove this container?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/containers/${containerId}/action`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ action })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`✅ ${data.message}\n${data.educational_tip}`);
+            refreshContainers();
+        } else {
+            alert(`❌ Error: ${data.error}\n${data.educational_tip}`);
+        }
+    } catch (error) {
+        alert(`Network error: ${error.message}`);
+    }
+}
+
+// View container logs
+async function viewLogs(containerId, containerName) {
+    const modal = document.getElementById('logs-modal');
+    const output = document.getElementById('logs-output').querySelector('pre');
+    
+    document.getElementById('logs-title').textContent = `📋 Logs: ${containerName}`;
+    output.textContent = '⏳ Loading logs...';
+    modal.style.display = 'block';
+    
+    try {
+        const response = await fetch(`/api/containers/${containerId}/logs`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            output.textContent = data.logs || 'No logs available';
+        } else {
+            output.textContent = `Error: ${data.error}`;
+        }
+    } catch (error) {
+        output.textContent = `Network error: ${error.message}`;
+    }
+}
+
+// Show spawn form modal
+function showSpawnForm() {
+    document.getElementById('spawn-modal').style.display = 'block';
+}
+
+// Close spawn modal
+function closeSpawnModal() {
+    document.getElementById('spawn-modal').style.display = 'none';
+    document.getElementById('spawn-form').reset();
+}
+
+// Close logs modal
+function closeLogsModal() {
+    document.getElementById('logs-modal').style.display = 'none';
+}
+
+// Spawn container from form
+async function spawnContainer(event) {
+    event.preventDefault();
+    
+    const formData = new FormData(event.target);
+    const data = {
+        image: formData.get('image'),
+        name: formData.get('name') || null,
+        command: formData.get('command') || null
+    };
+    
+    try {
+        const response = await fetch('/api/containers/spawn', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(`✅ Container created!\n${result.educational_tip}`);
+            closeSpawnModal();
+            refreshContainers();
+        } else {
+            alert(`❌ Error: ${result.error}\n${result.educational_tip}`);
+        }
+    } catch (error) {
+        alert(`Network error: ${error.message}`);
+    }
+}
+
+// Stop all containers
+async function stopAllContainers() {
+    if (!confirm('Stop all running containers?')) return;
+    
+    try {
+        const response = await fetch('/api/containers');
+        const data = await response.json();
+        
+        const runningContainers = data.containers.filter(c => c.status === 'running');
+        
+        for (const container of runningContainers) {
+            await containerAction(container.id, 'stop');
+        }
+        
+        alert(`✅ Stopped ${runningContainers.length} containers`);
+        refreshContainers();
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Cleanup stopped containers
+async function cleanupContainers() {
+    if (!confirm('Remove all stopped containers?')) return;
+    
+    try {
+        const response = await fetch('/api/containers');
+        const data = await response.json();
+        
+        const stoppedContainers = data.containers.filter(c => c.status !== 'running');
+        
+        for (const container of stoppedContainers) {
+            await containerAction(container.id, 'remove');
+        }
+        
+        alert(`✅ Removed ${stoppedContainers.length} containers`);
+        refreshContainers();
+    } catch (error) {
+        alert(`Error: ${error.message}`);
+    }
+}
+
+// Close modals on outside click
+window.onclick = function(event) {
+    if (event.target.className === 'modal') {
+        event.target.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

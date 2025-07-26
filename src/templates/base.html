@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Container Poker - Learn Container Orchestration{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="nav-container">
+                <a href="/" class="nav-brand">
+                    🎓 Container Poker
+                </a>
+                <ul class="nav-menu">
+                    <li><a href="/" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a></li>
+                    <li><a href="/containers" class="nav-link {% if request.endpoint == 'containers' %}active{% endif %}">Containers</a></li>
+                    <li><a href="/logs" class="nav-link {% if request.endpoint == 'logs' %}active{% endif %}">Logs</a></li>
+                    <li><a href="/api/status" class="nav-link" target="_blank">API Status</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="alerts">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">
+                                {{ message }}
+                                <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>💡 <strong>Learning Tip:</strong> Check the logs for educational insights!</p>
+            <p>Made with ❤️ for students learning container orchestration</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

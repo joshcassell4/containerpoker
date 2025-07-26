@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  orchestrator:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./src:/app/src
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    container_name: containerpoker_orchestrator
+    restart: unless-stopped

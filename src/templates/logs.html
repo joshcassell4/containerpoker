@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Log Viewer - Container Poker{% endblock %}
+
+{% block content %}
+<div class="logs-page">
+    <h1>📜 Container Logs Viewer</h1>
+    <p class="lead">Monitor container logs in real-time. Understanding logs is key to debugging!</p>
+
+    <!-- Log Controls -->
+    <div class="card">
+        <h2>🎮 Log Controls</h2>
+        <div class="controls-grid">
+            <div class="form-group inline">
+                <label for="container-select">Select Container:</label>
+                <select id="container-select" onchange="loadLogs()">
+                    <option value="">-- Select a container --</option>
+                </select>
+            </div>
+            <div class="form-group inline">
+                <label for="tail-lines">Lines to show:</label>
+                <input type="number" id="tail-lines" value="100" min="10" max="1000" onchange="loadLogs()">
+            </div>
+            <button class="btn btn-info" onclick="refreshContainerList()">
+                🔄 Refresh List
+            </button>
+            <button class="btn btn-primary" onclick="loadLogs()">
+                📋 Load Logs
+            </button>
+        </div>
+    </div>
+
+    <!-- Log Output -->
+    <div class="card">
+        <h2>📋 Log Output</h2>
+        <div class="log-controls">
+            <button class="btn btn-sm" onclick="clearLogs()">🧹 Clear</button>
+            <button class="btn btn-sm" onclick="scrollToBottom()">⬇️ Bottom</button>
+            <button class="btn btn-sm" onclick="scrollToTop()">⬆️ Top</button>
+            <label class="checkbox-label">
+                <input type="checkbox" id="auto-scroll" checked> Auto-scroll
+            </label>
+        </div>
+        <div id="log-viewer" class="log-viewer">
+            <pre id="log-content">Select a container to view its logs...</pre>
+        </div>
+    </div>
+
+    <!-- Log Analysis Tips -->
+    <div class="card">
+        <h2>🔍 Log Analysis Tips</h2>
+        <div class="tips-grid">
+            <div class="tip-card">
+                <h3>🎯 What to Look For</h3>
+                <ul>
+                    <li>Error messages and stack traces</li>
+                    <li>Warning indicators</li>
+                    <li>Timestamp patterns</li>
+                    <li>Performance metrics</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <h3>🛠️ Common Log Patterns</h3>
+                <ul>
+                    <li><code>[ERROR]</code> - Critical issues</li>
+                    <li><code>[WARN]</code> - Potential problems</li>
+                    <li><code>[INFO]</code> - Normal operations</li>
+                    <li><code>[DEBUG]</code> - Detailed info</li>
+                </ul>
+            </div>
+            <div class="tip-card">
+                <h3>💡 Debugging Steps</h3>
+                <ul>
+                    <li>1. Identify the error message</li>
+                    <li>2. Find the timestamp</li>
+                    <li>3. Look for related events</li>
+                    <li>4. Check container status</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentContainerId = null;
+let autoScrollEnabled = true;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshContainerList();
+    
+    // Set up auto-scroll checkbox
+    document.getElementById('auto-scroll').addEventListener('change', function(e) {
+        autoScrollEnabled = e.target.checked;
+    });
+});
+
+// Refresh container list
+async function refreshContainerList() {
+    try {
+        const response = await fetch('/api/containers');
+        const data = await response.json();
+        
+        const select = document.getElementById('container-select');
+        const currentValue = select.value;
+        
+        // Clear existing options except the first one
+        select.innerHTML = '<option value="">-- Select a container --</option>';
+        
+        // Add container options
+        data.containers.forEach(container => {
+            const option = document.createElement('option');
+            option.value = container.id;
+            option.textContent = `${container.name} (${container.status})`;
+            
+            // Add visual indicator for status
+            if (container.status === 'running') {
+                option.textContent = '🟢 ' + option.textContent;
+            } else {
+                option.textContent = '🔴 ' + option.textContent;
+            }
+            
+            select.appendChild(option);
+        });
+        
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(select.options).some(opt => opt.value === currentValue)) {
+            select.value = currentValue;
+        }
+        
+    } catch (error) {
+        console.error('Error loading containers:', error);
+        alert('Failed to load container list');
+    }
+}
+
+// Load logs for selected container
+async function loadLogs() {
+    const containerId = document.getElementById('container-select').value;
+    const tailLines = document.getElementById('tail-lines').value;
+    
+    if (!containerId) {
+        document.getElementById('log-content').textContent = 'Please select a container...';
+        return;
+    }
+    
+    currentContainerId = containerId;
+    const logContent = document.getElementById('log-content');
+    
+    try {
+        logContent.textContent = '⏳ Loading logs...';
+        
+        const response = await fetch(`/api/containers/${containerId}/logs?tail=${tailLines}`);
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayLogs(data.logs || 'No logs available');
+            
+            // Show educational tip if present
+            if (data.educational_tip) {
+                console.log('💡 Tip:', data.educational_tip);
+            }
+        } else {
+            logContent.textContent = `Error loading logs: ${data.error}`;
+        }
+        
+    } catch (error) {
+        logContent.textContent = `Network error: ${error.message}`;
+    }
+}
+
+// Display logs with syntax highlighting
+function displayLogs(logs) {
+    const logContent = document.getElementById('log-content');
+    
+    // Basic syntax highlighting for common patterns
+    const highlightedLogs = logs
+        .replace(/(\[ERROR\]|ERROR|Error|error)/g, '<span class="log-error">$1</span>')
+        .replace(/(\[WARN\]|WARNING|Warning|warn)/g, '<span class="log-warn">$1</span>')
+        .replace(/(\[INFO\]|INFO|Info)/g, '<span class="log-info">$1</span>')
+        .replace(/(\[DEBUG\]|DEBUG|Debug)/g, '<span class="log-debug">$1</span>')
+        .replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[\.\d]*Z?)/g, '<span class="log-timestamp">$1</span>')
+        .replace(/(https?:\/\/[^\s]+)/g, '<span class="log-url">$1</span>');
+    
+    logContent.innerHTML = highlightedLogs;
+    
+    // Auto-scroll to bottom if enabled
+    if (autoScrollEnabled) {
+        scrollToBottom();
+    }
+}
+
+// Clear log viewer
+function clearLogs() {
+    document.getElementById('log-content').textContent = 'Logs cleared. Select a container to load logs...';
+}
+
+// Scroll controls
+function scrollToBottom() {
+    const viewer = document.getElementById('log-viewer');
+    viewer.scrollTop = viewer.scrollHeight;
+}
+
+function scrollToTop() {
+    const viewer = document.getElementById('log-viewer');
+    viewer.scrollTop = 0;
+}
+
+// Auto-refresh logs if a container is selected
+setInterval(() => {
+    if (currentContainerId && document.hasFocus()) {
+        loadLogs();
+    }
+}, 5000); // Refresh every 5 seconds
+</script>
+
+<style>
+/* Log-specific styles */
+.log-viewer {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 4px;
+    height: 500px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.log-viewer pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.log-error { color: #ff6b6b; font-weight: bold; }
+.log-warn { color: #ffa500; }
+.log-info { color: #4dabf7; }
+.log-debug { color: #868e96; }
+.log-timestamp { color: #69db7c; }
+.log-url { color: #a5d8ff; text-decoration: underline; }
+
+.log-controls {
+    margin-bottom: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.checkbox-label {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+</style>
+{% endblock %}

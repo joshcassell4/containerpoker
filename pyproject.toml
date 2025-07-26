@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "containerpoker"
+version = "0.1.0"
+description = "Container orchestration learning platform"
+dependencies = [
+    "flask>=2.3.0",
+    "docker>=6.1.0",
+    "pexpect>=4.8.0",
+    "dockerpty>=0.4.1",
+    "watchdog>=3.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+]

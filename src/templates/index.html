@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Container Poker{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>🚀 Container Orchestration Learning Platform</h1>
+    <p class="lead">Welcome to Container Poker! Learn container orchestration through hands-on examples.</p>
+
+    <!-- System Status Card -->
+    <div class="card" id="status-card">
+        <h2>📊 System Status</h2>
+        <div id="system-status" class="status-grid">
+            <div class="status-item">
+                <span class="status-label">Docker Status:</span>
+                <span id="docker-status" class="status-value">Checking...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Containers Running:</span>
+                <span id="containers-running" class="status-value">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Total Containers:</span>
+                <span id="containers-total" class="status-value">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <h2>⚡ Quick Actions</h2>
+        <div class="action-grid">
+            <button class="btn btn-primary" onclick="spawnContainer()">
+                🐳 Spawn Test Container
+            </button>
+            <button class="btn btn-secondary" onclick="window.location.href='/containers'">
+                📋 Manage Containers
+            </button>
+            <button class="btn btn-info" onclick="refreshStatus()">
+                🔄 Refresh Status
+            </button>
+        </div>
+    </div>
+
+    <!-- Educational Examples -->
+    <div class="card">
+        <h2>📚 Educational Examples</h2>
+        <p>Click an example to see container orchestration in action!</p>
+        <div id="examples-grid" class="examples-grid">
+            <p class="loading">Loading examples...</p>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+        <h2>📜 Recent Activity</h2>
+        <div id="activity-log" class="activity-log">
+            <p class="muted">Activity will appear here as you interact with containers...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Example Execution Modal -->
+<div id="example-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2 id="example-title">Example</h2>
+        <div id="example-output" class="example-output">
+            <pre></pre>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Global variables
+let activityLog = [];
+
+// Load system status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    refreshStatus();
+    loadExamples();
+    setInterval(refreshStatus, 10000); // Refresh every 10 seconds
+});
+
+// Refresh system status
+async function refreshStatus() {
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        if (data.status === 'healthy') {
+            document.getElementById('docker-status').textContent = '✅ Connected';
+            document.getElementById('docker-status').className = 'status-value status-good';
+            document.getElementById('containers-running').textContent = data.docker.containers.running;
+            document.getElementById('containers-total').textContent = data.docker.containers.total;
+        } else {
+            document.getElementById('docker-status').textContent = '❌ Error';
+            document.getElementById('docker-status').className = 'status-value status-error';
+        }
+    } catch (error) {
+        document.getElementById('docker-status').textContent = '❌ Disconnected';
+        document.getElementById('docker-status').className = 'status-value status-error';
+        console.error('Error fetching status:', error);
+    }
+}
+
+// Load available examples
+async function loadExamples() {
+    try {
+        const response = await fetch('/api/examples');
+        const data = await response.json();
+        
+        const grid = document.getElementById('examples-grid');
+        grid.innerHTML = '';
+        
+        data.examples.forEach(example => {
+            const card = createExampleCard(example);
+            grid.appendChild(card);
+        });
+    } catch (error) {
+        console.error('Error loading examples:', error);
+        document.getElementById('examples-grid').innerHTML = 
+            '<p class="error">Failed to load examples</p>';
+    }
+}
+
+// Create example card element
+function createExampleCard(example) {
+    const div = document.createElement('div');
+    div.className = `example-card difficulty-${example.difficulty}`;
+    div.innerHTML = `
+        <h3>${example.name}</h3>
+        <p>${example.description}</p>
+        <div class="example-meta">
+            <span class="difficulty">${example.difficulty}</span>
+            <span class="tool">${example.tool}</span>
+        </div>
+        <button class="btn btn-sm" onclick="runExample('${example.id}')">
+            ▶️ Run Example
+        </button>
+    `;
+    return div;
+}
+
+// Run an example
+async function runExample(exampleId) {
+    const modal = document.getElementById('example-modal');
+    const output = document.getElementById('example-output').querySelector('pre');
+    
+    // Show modal with loading state
+    document.getElementById('example-title').textContent = 'Running Example...';
+    output.textContent = '⏳ Executing example, please wait...';
+    modal.style.display = 'block';
+    
+    try {
+        const response = await fetch(`/api/examples/${exampleId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('example-title').textContent = `✅ ${data.flow} - Success`;
+            output.textContent = JSON.stringify(data.result, null, 2);
+            addActivity(`Ran example: ${exampleId}`, 'success');
+        } else {
+            document.getElementById('example-title').textContent = `❌ ${data.flow} - Failed`;
+            output.textContent = `Error: ${data.error}\n\nDebugging Tips:\n${data.debugging_tips.join('\n')}`;
+            addActivity(`Example failed: ${exampleId}`, 'error');
+        }
+    } catch (error) {
+        output.textContent = `Network error: ${error.message}`;
+        addActivity(`Network error running example`, 'error');
+    }
+}
+
+// Spawn a test container
+async function spawnContainer() {
+    try {
+        const response = await fetch('/api/containers/spawn', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                image: 'ubuntu:latest',
+                command: 'echo "Hello from Container Poker!"'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            alert(`✅ Container spawned!\nID: ${data.container.id}\n${data.educational_tip}`);
+            addActivity(`Spawned container: ${data.container.name}`, 'success');
+            refreshStatus();
+        } else {
+            alert(`❌ Error: ${data.error}\n${data.educational_tip}`);
+            addActivity(`Failed to spawn container`, 'error');
+        }
+    } catch (error) {
+        alert(`Network error: ${error.message}`);
+        addActivity(`Network error spawning container`, 'error');
+    }
+}
+
+// Add activity to log
+function addActivity(message, type = 'info') {
+    const log = document.getElementById('activity-log');
+    const timestamp = new Date().toLocaleTimeString();
+    const entry = document.createElement('div');
+    entry.className = `activity-entry ${type}`;
+    entry.innerHTML = `<span class="timestamp">${timestamp}</span> ${message}`;
+    
+    // Remove placeholder text
+    if (log.querySelector('.muted')) {
+        log.innerHTML = '';
+    }
+    
+    log.insertBefore(entry, log.firstChild);
+    
+    // Keep only last 10 entries
+    while (log.children.length > 10) {
+        log.removeChild(log.lastChild);
+    }
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('example-modal').style.display = 'none';
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById('example-modal');
+    if (event.target == modal) {
+        modal.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}
