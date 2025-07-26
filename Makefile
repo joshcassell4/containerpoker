@@ -1,37 +1,48 @@
-.PHONY: help setup install clean start stop restart logs shell test format lint git-init
+.PHONY: help setup setup-dev docker-setup install clean start stop restart logs shell test format lint git-init
 
 # Default target
 help:
 	@echo "Container Poker - Container Orchestration Learning Platform"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  setup     - Complete project setup (install uv, deps, build, start)"
-	@echo "  install   - Install dependencies with uv"
-	@echo "  build     - Build Docker containers"
-	@echo "  start     - Start the application"
-	@echo "  stop      - Stop all containers"
-	@echo "  restart   - Restart the application"
-	@echo "  logs      - Show application logs"
-	@echo "  shell     - Open shell in the orchestrator container"
-	@echo "  clean     - Clean up containers and images"
-	@echo "  test      - Run tests"
-	@echo "  format    - Format code with black"
-	@echo "  lint      - Lint code with flake8"
-	@echo "  git-init  - Initialize git repo and push to GitHub"
+	@echo "  setup        - Quick setup for container development (no local Python needed)"
+	@echo "  setup-dev    - Full setup with local Python development (requires uv)"
+	@echo "  docker-setup - Alias for setup (container-only development)"
+	@echo "  build        - Build Docker containers"
+	@echo "  start        - Start the application"
+	@echo "  stop         - Stop all containers"
+	@echo "  restart      - Restart the application"
+	@echo "  logs         - Show application logs"
+	@echo "  shell        - Open shell in the orchestrator container"
+	@echo "  clean        - Clean up containers and images"
+	@echo "  test         - Run tests in container"
+	@echo "  format       - Format code in container"
+	@echo "  lint         - Lint code in container"
+	@echo "  install-dev-tools - Install pytest, black, flake8 in container"
+	@echo "  git-init     - Initialize git repo and push to GitHub"
 
-# Complete setup for new students
-setup: check-uv install build start
+# Quick setup for container development (Windows/Mac/Linux friendly)
+setup: build start
 	@echo "🎉 Setup complete! Visit http://localhost:5000"
-	@echo "📚 Check README.md for usage instructions"
+	@echo "📚 All development happens inside the container - no local Python needed!"
+	@echo "💡 Use 'make shell' to access the container"
 
-# Check if uv is installed
+# Alias for container-only setup
+docker-setup: setup
+
+# Full setup for local development (requires uv)
+setup-dev: check-uv install build start
+	@echo "🎉 Full development setup complete! Visit http://localhost:5000"
+	@echo "📚 You can develop locally or in the container"
+
+# Check if uv is installed (only for local development)
 check-uv:
-	@which uv > /dev/null || (echo "❌ uv not found. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh" && exit 1)
+	@which uv > /dev/null || (echo "❌ uv not found. For local development, install with: curl -LsSf https://astral.sh/uv/install.sh | sh" && echo "💡 TIP: Use 'make setup' for container-only development (no uv needed)" && exit 1)
 	@echo "✅ uv found"
 
-# Install Python dependencies
+# Install Python dependencies locally (only for local development)
 install:
-	@echo "📦 Installing dependencies..."
+	@echo "📦 Installing dependencies locally..."
 	uv sync
 	uv export --no-hashes > requirements.txt
 
@@ -68,17 +79,25 @@ clean:
 	docker-compose down -v --remove-orphans
 	docker system prune -f
 
-# Run tests
+# Run tests (in container)
 test:
-	uv run pytest
+	@echo "🧪 Running tests in container..."
+	docker-compose exec orchestrator python -m pytest || echo "💡 Install pytest in container first: make shell → pip install pytest"
 
-# Format code
+# Format code (in container)
 format:
-	uv run black src/
+	@echo "🎨 Formatting code in container..."
+	docker-compose exec orchestrator python -m black src/ || echo "💡 Install black in container first: make shell → pip install black"
 
-# Lint code  
+# Lint code (in container)
 lint:
-	uv run flake8 src/
+	@echo "🔍 Linting code in container..."
+	docker-compose exec orchestrator python -m flake8 src/ || echo "💡 Install flake8 in container first: make shell → pip install flake8"
+
+# Install dev tools in container
+install-dev-tools:
+	@echo "📦 Installing development tools in container..."
+	docker-compose exec orchestrator pip install pytest black flake8
 
 # Initialize git repository and push to GitHub
 git-init:

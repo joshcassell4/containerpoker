@@ -6,16 +6,18 @@ A hands-on learning platform for students to experiment with container orchestra
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/containerpoker.git
+git clone https://github.com/joshcassell4/containerpoker.git
 cd containerpoker
 
-# One command setup!
+# One command setup! (No Python installation needed)
 make setup
 
 # Visit http://localhost:5000
 ```
 
 That's it! You're ready to learn container orchestration! 🎉
+
+**Windows Users**: Use Git Bash or WSL to run `make` commands. Everything runs inside Docker containers - no local Python setup required!
 
 ## 📚 What You'll Learn
 
@@ -29,9 +31,10 @@ That's it! You're ready to learn container orchestration! 🎉
 ## 🛠️ Prerequisites
 
 - **Docker**: Install from [docker.com](https://docker.com)
-- **Python 3.8+**: Usually pre-installed on most systems
 - **Git**: For cloning the repository
-- **Make**: Usually pre-installed (Windows users: use Git Bash)
+- **Make**: Usually pre-installed (Windows users: use Git Bash or WSL)
+
+That's it! Python runs inside the container - no local installation needed! 🐳
 
 ## 📖 Detailed Setup
 
@@ -52,30 +55,22 @@ sudo usermod -aG docker $USER
 # Use Git Bash for running commands
 ```
 
-### 2. Install uv (Fast Python Package Manager)
-
-```bash
-# All platforms
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Or with pip
-pip install uv
-```
-
-### 3. Clone and Setup
+### 2. Clone and Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/containerpoker.git
+git clone https://github.com/joshcassell4/containerpoker.git
 cd containerpoker
 
-# Complete setup (installs dependencies, builds containers, starts app)
+# Quick container setup (recommended for Windows)
 make setup
 
-# Or step by step:
-make install  # Install Python dependencies
+# Or if you prefer step by step:
 make build    # Build Docker containers
 make start    # Start the application
+
+# For local Python development (optional, requires uv):
+make setup-dev
 ```
 
 ## 🎮 Usage
